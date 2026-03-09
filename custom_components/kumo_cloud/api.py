@@ -154,27 +154,51 @@ class KumoCloudAPI:
             "Content-Type": "application/json",
         }
 
-        try:
-            async with asyncio.timeout(30):
-                if method.upper() == "GET":
-                    async with self.session.get(url, headers=headers) as response:
-                        response.raise_for_status()
-                        return await response.json()
-                elif method.upper() == "POST":
-                    async with self.session.post(
-                        url, headers=headers, json=data
-                    ) as response:
-                        response.raise_for_status()
-                        if response.content_type == "application/json":
+        max_retries = 3
+        base_delay = 60
+        
+        for attempt in range(max_retries + 1):
+            try:
+                async with asyncio.timeout(30):
+                    if method.upper() == "GET":
+                        async with self.session.get(url, headers=headers) as response:
+                            response.raise_for_status()
                             return await response.json()
-                        return {}
+                    elif method.upper() == "POST":
+                        async with self.session.post(
+                            url, headers=headers, json=data
+                        ) as response:
+                            response.raise_for_status()
+                            if response.content_type == "application/json":
+                                return await response.json()
+                            return {}
 
-        except asyncio.TimeoutError as err:
-            raise KumoCloudConnectionError("Request timeout") from err
-        except ClientResponseError as err:
-            if err.status == 401:
-                raise KumoCloudAuthError("Authentication failed") from err
-            raise KumoCloudConnectionError(f"HTTP error: {err.status}") from err
+            except asyncio.TimeoutError as err:
+                if attempt < max_retries:
+                    delay = base_delay * (2 ** attempt)
+                    _LOGGER.warning(
+                        "Request timeout (attempt %d/%d), retrying in %d seconds",
+                        attempt + 1,
+                        max_retries + 1,
+                        delay,
+                    )
+                    await asyncio.sleep(delay)
+                    continue
+                raise KumoCloudConnectionError("Request timeout") from err
+            except ClientResponseError as err:
+                if err.status == 401:
+                    raise KumoCloudAuthError("Authentication failed") from err
+                if err.status == 429 and attempt < max_retries:
+                    delay = base_delay * (2 ** attempt)
+                    _LOGGER.warning(
+                        "Rate limited (429), retrying in %d seconds (attempt %d/%d)",
+                        delay,
+                        attempt + 1,
+                        max_retries + 1,
+                    )
+                    await asyncio.sleep(delay)
+                    continue
+                raise KumoCloudConnectionError(f"HTTP error: {err.status}") from err
 
     async def get_account_info(self) -> dict[str, Any]:
         """Get account information."""
@@ -195,6 +219,47 @@ class KumoCloudAPI:
     async def get_device_profile(self, device_serial: str) -> list[dict[str, Any]]:
         """Get device profile information."""
         return await self._request("GET", f"/devices/{device_serial}/profile")
+
+    async def get_wireless_sensor(self, device_serial: str) -> dict[str, Any] | None:
+        """Get wireless sensor data (battery, temperature, humidity, rssi).
+
+        Returns None if the device has no wireless sensor attached.
+        Endpoint: GET /v3/devices/{deviceSerial}/sensor
+        """
+        try:
+            return await self._request("GET", f"/devices/{device_serial}/sensor")
+        except KumoCloudConnectionError as err:
+            if "404" in str(err):
+                return None
+            raise
+
+    async def get_device_status(self, device_serial: str) -> dict[str, Any] | None:
+        """Get device status (firmware version, WiFi signal, router info).
+
+        Endpoint: GET /v3/devices/{deviceSerial}/status
+        Returns: firmwareVersion, routerSsid, routerRssi, autoModeDisable,
+                 roomTempDisplayOffset, modeHeat, modeDry, cryptoSerial, etc.
+        """
+        try:
+            return await self._request("GET", f"/devices/{device_serial}/status")
+        except KumoCloudConnectionError as err:
+            if "404" in str(err):
+                return None
+            raise
+
+    async def get_zone_notification_preferences(self, zone_id: str) -> dict[str, Any] | None:
+        """Get zone notification preferences (filter reminders, alert settings).
+
+        Endpoint: GET /v3/zones/{zoneId}/notification-preferences
+        Returns: filterDirtyReminderInterval, filterDirtyReminderLastSent,
+                 sensorLowBattery, sensorSignalLost, lowTemp, highTemp, etc.
+        """
+        try:
+            return await self._request("GET", f"/zones/{zone_id}/notification-preferences")
+        except KumoCloudConnectionError as err:
+            if "404" in str(err):
+                return None
+            raise
 
     async def send_command(
         self, device_serial: str, commands: dict[str, Any]
