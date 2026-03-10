@@ -1,26 +1,30 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## [1.0.0] - 2024-01-01
+## [1.1.0] - 2026-03-09
 
 ### Added
-- Initial release of Mitsubishi Comfort integration
-- Climate control support for Mitsubishi Electric systems via Kumo Cloud API
-- Config flow for easy setup
-- Multi-zone support
-- Automatic token refresh
-- Device capability detection
-- Support for temperature, HVAC modes, fan speeds, and air direction
-- Real-time temperature and humidity monitoring
+- Mitsubishi proprietary F/C temperature lookup tables (ekiczek PR #23, PR #199)
+- Fan speed mapping: API values now correctly translate to Comfort app labels
+- Vane position mapping: API values now correctly translate to Comfort app labels
+- Command caching with `updatedAt` comparison to prevent state bounce (smack000)
+- Standalone temperature and humidity sensor entities per zone (smack000)
+- Wireless sensor support: battery level, signal strength (RSSI), temperature, and humidity
+  from PAC-USWHS003-TH-1 sensors via /v3/devices/{serial}/sensor endpoint
+- Diagnostic sensors: WiFi adapter firmware version and signal strength via /v3/devices/{serial}/status
+- Filter maintenance tracking via /v3/zones/{id}/notification-preferences
+- Updated API app version from 3.0.9 to 3.2.4 to match current Comfort app
+- Auto heat/cool mode with dual setpoint support (smack000 / tw3rp)
+- Refactored architecture: API client and coordinator in separate modules (smack000)
+- API retry logic with exponential backoff for 429 rate limits (smack000 / tw3rp)
+- Improved entity availability: prevents false automation triggers during transient API errors (tw3rp)
+- Debug logging for fan speed and vane position translations
 
-### Features
-- Climate entity with full Home Assistant integration
-- Automatic discovery of zones within selected site
-- Configurable update intervals
-- Error handling and retry logic
-- Support for multiple HVAC modes (heat, cool, dry, fan, auto)
-- Device-specific feature detection 
+### Fixed
+- Temperature setpoints now match the Comfort app exactly (no more ~1 F drift)
+- Fan speed display matches Comfort app labels (was showing raw API values)
+- Vane position display matches Comfort app labels (was showing raw API values)
+- State bouncing after sending commands (cached commands maintained until server confirms)
+- Sensor entities now inherit from CoordinatorEntity for automatic updates
+
+## [0.1.1-alpha.1] - Previous upstream release
+- Initial Kumo Cloud V3 API integration by jjustinwilson

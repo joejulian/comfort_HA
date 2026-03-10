@@ -1,82 +1,86 @@
 # Mitsubishi Comfort Integration for Home Assistant
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/custom-components/hacs)
-[![GitHub release](https://img.shields.io/github/release/jjustinwilson/kumo_cloud.svg)](https://github.com/jjustinwilson/kumo_cloud/releases)
 
-This integration allows you to control your Mitsubishi Electric climate control systems through the Kumo Cloud API in Home Assistant.
+Fork of [jjustinwilson/comfort_HA](https://github.com/jjustinwilson/comfort_HA) with the following fixes and enhancements:
+
+## What's different in this fork
+
+### Fan speed mapping
+The upstream integration passes raw Kumo Cloud API values (`quiet`, `low`, `powerful`) that don't match what the Comfort app or physical remote shows. This fork translates them to match the app labels (Quiet, Low, Medium, High, Powerful).
+
+### Vane position mapping
+Same issue. Raw API values like `midvertical` and `midhorizontal` are translated to the Comfort app labels (Lowest, Low, Middle, High, Highest).
+
+### Temperature conversion
+Mitsubishi uses a proprietary F-to-C lookup table that diverges from standard math at several setpoints (64-66 F, 69-72 F). This fork uses the same lookup table as the Comfort app, eliminating the ~1 F drift for Fahrenheit users. Based on [ekiczek's work](https://github.com/ekiczek/comfort_HA) (PR #23).
+
+### Wireless sensor support (PAC-USWHS003-TH-1)
+For zones with a Mitsubishi wireless temperature/humidity sensor attached, the integration creates additional entities for battery level, signal strength (RSSI), and the wireless sensor's own temperature and humidity readings. The `hasSensor` flag in the zone data is used to detect which devices have a wireless sensor, and the data is fetched from the `/v3/devices/{serial}/sensor` endpoint (discovered via traffic analysis of the Comfort app).
+
+### Command caching / anti-bounce
+The Comfort cloud API can take up to a minute to reflect changes from sent commands. Previous code that queried a second after issuing a command would "bounce" the state back to what it was before. This fork caches commands with timestamps and examines the `updatedAt` field returned by the server to keep queued commands applied until a server update confirms the command was processed. Based on [smack000's work](https://github.com/smack000/comfort_HA).
+
+### Auto heat/cool mode
+Proper support for Mitsubishi's `autoCool` and `autoHeat` operation modes, mapped to HA's `HEAT_COOL` mode with dual setpoint support (separate heat and cool target temperatures).
+
+### Temperature and humidity sensors
+Standalone sensor entities for each zone, usable in automations, history graphs, and dashboard cards independently from the climate entity.
+
+### Diagnostic sensors
+WiFi adapter firmware version and signal strength (RSSI) from the `/v3/devices/{serial}/status` endpoint, plus filter maintenance reminders from `/v3/zones/{id}/notification-preferences`. All exposed as diagnostic entities.
+
+### Refactored architecture
+API client and coordinator extracted into separate modules (`api.py`, `coordinator.py`), eliminating blocking load dependencies between the climate and sensor platforms. Includes retry logic with exponential backoff for API rate limits (429 errors).
 
 ## Installation
 
 ### HACS (Recommended)
 
-1. Install [HACS](https://hacs.xyz/) if you haven't already
-2. Go to HACS → Integrations
-3. Click the three dots in the top right corner and select "Custom repositories"
-4. Add this repository URL: `https://github.com/jjustinwilson/comfort_HA/`
-5. Select "Integration" as the category
-6. Click "Add"
-7. Find "Mitsubishi Comfort" in the HACS integrations list and install it
-8. Restart Home Assistant
+1. Install [HACS](https://hacs.xyz) if you haven't already
+2. Go to HACS > Integrations > 3 dots menu > Custom repositories
+3. Add `JoeQuantum/comfort_HA` with category "Integration"
+4. Search for "Mitsubishi Comfort" and install
+5. Restart Home Assistant
+
+### Manual
+
+1. Copy the `custom_components/kumo_cloud` folder to your HA `custom_components` directory
+2. Restart Home Assistant
 
 ## Configuration
 
-1. Go to **Settings** > **Devices & Services** > **Add Integration**
+1. Go to Settings > Devices & Services > Add Integration
 2. Search for "Mitsubishi Comfort"
-3. Enter your Kumo Cloud account credentials (email and password)
-4. Select the site you want to control if you have multiple sites
-5. Your climate devices will be automatically discovered and added
+3. Enter your Kumo Cloud / Comfort app credentials
+4. Select your site if you have multiple
 
-## Features
+## Fan Speed Reference
 
-- **Climate Control**: Control temperature, HVAC modes (heat, cool, dry, fan, auto), fan speeds, and air direction
-- **Real-time Updates**: Monitor current temperature, humidity, and device status
-- **Multi-Zone Support**: Control multiple zones within a site
-- **Automatic Token Refresh**: Handles authentication token refresh automatically
-- **Device Profiles**: Automatically detects device capabilities and adjusts available features
+| HA Label | Comfort App | API Value |
+|----------|-------------|-----------|
+| auto     | Auto        | auto      |
+| quiet    | Quiet       | superQuiet |
+| low      | Low         | quiet     |
+| medium   | Medium      | low       |
+| high     | High        | powerful  |
+| powerful | Powerful    | superPowerful |
 
-## Supported HVAC Modes
+## Vane Position Reference
 
-- **Off**: Turn the unit off
-- **Cool**: Cooling mode
-- **Heat**: Heating mode (if supported by device)
-- **Dry**: Dehumidification mode (if supported by device)
-- **Fan Only**: Fan only mode (if supported by device)
-- **Auto**: Automatic heating/cooling mode (if supported by device)
+| HA Label | Comfort App | API Value |
+|----------|-------------|-----------|
+| auto     | Auto        | auto      |
+| swing    | Swing       | swing     |
+| lowest   | Lowest      | vertical  |
+| low      | Low         | midvertical |
+| middle   | Middle      | midpoint  |
+| high     | High        | midhorizontal |
+| highest  | Highest     | horizontal |
 
-## Supported Features
+## Credits
 
-- **Temperature Control**: Set target temperature with 0.5°C precision
-- **Fan Speed Control**: Auto, Low, Medium, High (depending on device capabilities)
-- **Air Direction Control**: Horizontal, Vertical, Swing (if supported by device)
-- **Current Temperature**: Monitor room temperature
-- **Humidity Monitoring**: View current humidity levels
-
-## API Information
-
-This integration uses the unofficial Kumo Cloud API v3. The API endpoints and schemas were reverse-engineered from the mobile app and may change without notice.
-
-## Troubleshooting
-
-- **Authentication Errors**: Verify your Kumo Cloud credentials are correct
-- **Connection Issues**: Check your internet connection and ensure the Kumo Cloud service is available
-- **Device Not Responding**: Check that your climate control system is connected to Wi-Fi and online in the Kumo Cloud app
-
-## Technical Details
-
-- **Update Interval**: 60 seconds (configurable)
-- **Token Refresh**: Automatic every 20 minutes
-- **Temperature Unit**: Celsius (as used by the Kumo Cloud API)
-- **API Base URL**: https://app-prod.kumocloud.com
-- **API Version**: v3
-
-## Support
-
-If you encounter any issues, please check the [issue tracker](https://github.com/jjustinwilson/comfort_HA/issues) or create a new issue with details about your problem.
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## License
-
-This project is licensed under the MIT License. 
+- [jjustinwilson](https://github.com/jjustinwilson/comfort_HA) - Original integration and V3 API reverse engineering
+- [ekiczek](https://github.com/ekiczek/comfort_HA) - Mitsubishi F/C temperature lookup tables (PR #23, hass-kumo PR #199)
+- [smack000](https://github.com/smack000/comfort_HA) - Command caching, coordinator refactor, sensors, auto heat/cool mode
+- [tw3rp](https://github.com/jjustinwilson/comfort_HA/pull/2#issuecomment-2974732965) - Dual setpoint support for auto heat/cool, improved entity availability, API rate limiting with exponential backoff
