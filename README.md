@@ -39,7 +39,7 @@ API client and coordinator extracted into separate modules (`api.py`, `coordinat
 
 1. Install [HACS](https://hacs.xyz) if you haven't already
 2. Go to HACS > Integrations > 3 dots menu > Custom repositories
-3. Add `JoeQuantum/comfort_HA` with category "Integration"
+3. Add `joejulian/comfort_HA` with category "Integration"
 4. Search for "Mitsubishi Comfort" and install
 5. Restart Home Assistant
 
@@ -54,6 +54,53 @@ API client and coordinator extracted into separate modules (`api.py`, `coordinat
 2. Search for "Mitsubishi Comfort"
 3. Enter your Kumo Cloud / Comfort app credentials
 4. Select your site if you have multiple
+
+## Supported devices and functions
+
+This integration targets Mitsubishi Electric systems exposed through the
+Mitsubishi Comfort / Kumo Cloud API. It creates climate entities for indoor
+units discovered in the selected site and sensor entities for available zone,
+adapter, wireless sensor, WiFi, and filter-reminder data.
+
+Supported climate functions include:
+
+- Heat, cool, dry, fan-only, off, and auto heat/cool modes when reported by the unit profile
+- Target temperature control
+- Dual heat/cool setpoints in auto mode
+- Fan speed control using Comfort app labels
+- Vane position control using Comfort app labels
+- Current temperature and humidity reporting
+
+## Data updates
+
+The integration polls the Mitsubishi cloud API through a `DataUpdateCoordinator`.
+Commands are cached locally until the cloud state catches up, because the API can
+take time to reflect recently sent setpoint, mode, fan, or vane changes.
+
+## Known limitations
+
+- This is a cloud-polling integration and depends on Mitsubishi cloud availability.
+- The Comfort app and cloud API can be eventually consistent after commands.
+- Fahrenheit setpoints use Mitsubishi's observed lookup table rather than standard
+  mathematical conversion.
+- Multi-site accounts are supported at setup time by selecting one site per config entry.
+
+## Troubleshooting
+
+- If setup fails with an authentication error, re-enter the current Comfort app credentials.
+- If setup fails during a network or DNS outage, Home Assistant should retry setup automatically.
+- If a command appears to bounce back briefly, wait for the cloud API to settle before retrying.
+- Download diagnostics from the integration page when reporting issues; diagnostics redact
+  credentials, tokens, account identifiers, device serials, and router SSIDs.
+
+## Removal
+
+1. In Home Assistant, go to Settings > Devices & Services.
+2. Open the Mitsubishi Comfort integration entry.
+3. Select Delete.
+4. Restart Home Assistant if HACS or the frontend still shows stale entities.
+5. To uninstall completely, remove the integration through HACS or delete
+   `custom_components/kumo_cloud` from your Home Assistant configuration directory.
 
 ## Fan Speed Reference
 
