@@ -49,6 +49,14 @@ from .const import (
     AIR_DIRECTION_VERTICAL,
     AIR_DIRECTION_SWING,
 )
+from .mappings import (
+    API_TO_UI_FAN,
+    API_TO_UI_VANE,
+    UI_FAN_ORDER,
+    UI_TO_API_FAN,
+    UI_TO_API_VANE,
+    UI_VANE_ORDER,
+)
 from .temperature import c_to_f as _c_to_f
 from .temperature import f_to_c as _f_to_c
 
@@ -60,57 +68,6 @@ _LOGGER = logging.getLogger(__name__)
 # =============================================================================
 # Implemented in temperature.py so the pure conversion behavior can be tested
 # without importing Home Assistant entity classes.
-
-
-# =============================================================================
-# Fan speed mapping: Kumo Cloud API values <-> Comfort app UI labels
-# =============================================================================
-# The V3 API uses internal speed names that don't match what the Comfort app
-# or physical remote displays. This mapping translates between the two.
-
-API_TO_UI_FAN = {
-    "auto": "auto",
-    "superQuiet": "quiet",       # vendor "superQuiet"    -> UI "quiet"
-    "quiet": "low",              # vendor "quiet"         -> UI "low"
-    "low": "medium",             # vendor "low"           -> UI "medium"
-    "powerful": "high",          # vendor "powerful"      -> UI "high"
-    "superPowerful": "powerful", # vendor "superPowerful" -> UI "powerful"
-}
-UI_TO_API_FAN = {
-    "auto": "auto",
-    "quiet": "superQuiet",
-    "low": "quiet",
-    "medium": "low",
-    "high": "powerful",
-    "powerful": "superPowerful",
-}
-# Order matters for HomeKit bucketing; keep low->high progression
-UI_FAN_ORDER = ["auto", "quiet", "low", "medium", "high", "powerful"]
-
-
-# =============================================================================
-# Vane (air direction) mapping: Kumo Cloud API values <-> Comfort app UI labels
-# =============================================================================
-
-API_TO_UI_VANE = {
-    "auto": "auto",
-    "swing": "swing",
-    "vertical": "lowest",
-    "midvertical": "low",
-    "midpoint": "middle",
-    "midhorizontal": "high",
-    "horizontal": "highest",
-}
-UI_TO_API_VANE = {
-    "auto": "auto",
-    "swing": "swing",
-    "lowest": "vertical",
-    "low": "midvertical",
-    "middle": "midpoint",
-    "high": "midhorizontal",
-    "highest": "horizontal",
-}
-UI_VANE_ORDER = ["auto", "swing", "lowest", "low", "middle", "high", "highest"]
 
 
 # Debug logging follows HA's log level (no hardcoded flag needed).
