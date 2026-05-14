@@ -4,6 +4,7 @@
     "codeowners": ["@joejulian"],
     "config_flow": true,
     "documentation": "https://github.com/joejulian/comfort_HA/",
+    "integration_type": "hub",
     "issue_tracker": "https://github.com/joejulian/comfort_HA/issues",
     "iot_class": "cloud_polling",
     "loggers": ["kumo_cloud"],
