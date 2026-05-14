@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.2] - 2026-05-14
+
+### Fixed
+- Stop persisting the Kumo account password in Home Assistant config entry data.
+- Remove legacy stored passwords after successful setup while preserving refreshed
+  access and refresh tokens.
+
 ## [1.1.1] - 2026-05-14
 
 ### Fixed
