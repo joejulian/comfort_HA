@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.1.1] - 2026-05-14
+
+### Fixed
+- Treat transient DNS/socket failures during setup and token refresh as retryable
+  connection failures instead of leaving the integration in a permanent setup error.
+- Treat HTTP 403 responses as authentication failures so Home Assistant can route
+  them through the normal reauthentication path.
+- Wrap token-refresh retry failures in `UpdateFailed` so coordinator updates degrade
+  cleanly instead of leaking raw exceptions.
+
+### Changed
+- Updated HACS metadata to point at the `joejulian/comfort_HA` fork.
+
 ## [1.1.0] - 2026-03-09
 
 ### Added
