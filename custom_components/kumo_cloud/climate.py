@@ -107,6 +107,76 @@ KUMO_FAN_SPEEDS = [FAN_SPEED_AUTO, FAN_SPEED_LOW, FAN_SPEED_MEDIUM, FAN_SPEED_HI
 KUMO_AIR_DIRECTIONS = [AIR_DIRECTION_HORIZONTAL, AIR_DIRECTION_VERTICAL, AIR_DIRECTION_SWING]
 
 
+def _current_setpoint_commands(
+    adapter: dict[str, Any],
+    device_data: dict[str, Any],
+) -> dict[str, Any]:
+    """Return current heat/cool setpoints for mode commands."""
+    commands: dict[str, Any] = {}
+    sp_cool = device_data.get("spCool", adapter.get("spCool"))
+    sp_heat = device_data.get("spHeat", adapter.get("spHeat"))
+
+    if sp_cool is not None:
+        commands["spCool"] = sp_cool
+    if sp_heat is not None:
+        commands["spHeat"] = sp_heat
+
+    return commands
+
+
+def _temperature_commands(
+    kwargs: dict[str, Any],
+    hvac_mode: HVACMode,
+    adapter: dict[str, Any],
+    device_data: dict[str, Any],
+) -> dict[str, Any]:
+    """Build Kumo setpoint commands from Home Assistant temperature kwargs."""
+    commands: dict[str, Any] = {}
+
+    low_f = kwargs.get(ATTR_TARGET_TEMP_LOW)
+    high_f = kwargs.get(ATTR_TARGET_TEMP_HIGH)
+
+    if low_f is not None or high_f is not None:
+        current_low_c = device_data.get("spHeat", adapter.get("spHeat"))
+        current_high_c = device_data.get("spCool", adapter.get("spCool"))
+
+        if low_f is not None:
+            commands["spHeat"] = _f_to_c(low_f)
+        elif current_low_c is not None:
+            commands["spHeat"] = current_low_c
+
+        if high_f is not None:
+            commands["spCool"] = _f_to_c(high_f)
+        elif current_high_c is not None:
+            commands["spCool"] = current_high_c
+
+        return commands
+
+    target_temp_f = kwargs.get(ATTR_TEMPERATURE)
+    if target_temp_f is None:
+        return commands
+
+    target_temp_c = _f_to_c(target_temp_f)
+
+    if hvac_mode == HVACMode.COOL:
+        commands["spCool"] = target_temp_c
+        sp_heat = device_data.get("spHeat", adapter.get("spHeat"))
+        if sp_heat is not None:
+            commands["spHeat"] = sp_heat
+
+    elif hvac_mode == HVACMode.HEAT:
+        commands["spHeat"] = target_temp_c
+        sp_cool = device_data.get("spCool", adapter.get("spCool"))
+        if sp_cool is not None:
+            commands["spCool"] = sp_cool
+
+    elif hvac_mode == HVACMode.HEAT_COOL:
+        commands["spCool"] = target_temp_c
+        commands["spHeat"] = target_temp_c - 1.0
+
+    return commands
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -445,14 +515,7 @@ class KumoCloudClimate(CoordinatorEntity, ClimateEntity):
                 # Include current setpoints to maintain them
                 adapter = self.device.zone_data.get("adapter", {})
                 device_data = self.device.device_data
-
-                sp_cool = device_data.get("spCool", adapter.get("spCool"))
-                sp_heat = device_data.get("spHeat", adapter.get("spHeat"))
-
-                if sp_cool is not None:
-                    commands["spCool"] = sp_cool
-                if sp_heat is not None:
-                    commands["spHeat"] = sp_heat
+                commands.update(_current_setpoint_commands(adapter, device_data))
 
                 await self._send_command_and_refresh(commands)
 
@@ -460,54 +523,8 @@ class KumoCloudClimate(CoordinatorEntity, ClimateEntity):
         """Set new target temperature."""
         adapter = self.device.zone_data.get("adapter", {})
         device_data = self.device.device_data
-        commands: dict[str, Any] = {}
-
-        # Range set (preferred for HEAT_COOL / auto)
-        low_f = kwargs.get(ATTR_TARGET_TEMP_LOW)
-        high_f = kwargs.get(ATTR_TARGET_TEMP_HIGH)
-
-        if low_f is not None or high_f is not None:
-            current_low_c = device_data.get("spHeat", adapter.get("spHeat"))
-            current_high_c = device_data.get("spCool", adapter.get("spCool"))
-
-            if low_f is not None:
-                commands["spHeat"] = _f_to_c(low_f)
-            elif current_low_c is not None:
-                commands["spHeat"] = current_low_c
-
-            if high_f is not None:
-                commands["spCool"] = _f_to_c(high_f)
-            elif current_high_c is not None:
-                commands["spCool"] = current_high_c
-
-            if commands:
-                await self._send_command_and_refresh(commands)
-            return
-
-        # Single setpoint (heat/cool modes)
-        target_temp_f = kwargs.get(ATTR_TEMPERATURE)
-        if target_temp_f is None:
-            return
-
-        target_temp_c = _f_to_c(target_temp_f)
         hvac_mode = self.hvac_mode
-
-        if hvac_mode == HVACMode.COOL:
-            commands["spCool"] = target_temp_c
-            sp_heat = device_data.get("spHeat", adapter.get("spHeat"))
-            if sp_heat is not None:
-                commands["spHeat"] = sp_heat
-
-        elif hvac_mode == HVACMode.HEAT:
-            commands["spHeat"] = target_temp_c
-            sp_cool = device_data.get("spCool", adapter.get("spCool"))
-            if sp_cool is not None:
-                commands["spCool"] = sp_cool
-
-        elif hvac_mode == HVACMode.HEAT_COOL:
-            # Single setpoint in auto mode: set both with hysteresis
-            commands["spCool"] = target_temp_c
-            commands["spHeat"] = target_temp_c - 1.0  # ~2 F hysteresis
+        commands = _temperature_commands(kwargs, hvac_mode, adapter, device_data)
 
         if commands:
             await self._send_command_and_refresh(commands)
