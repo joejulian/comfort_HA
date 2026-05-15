@@ -93,6 +93,19 @@ take time to reflect recently sent setpoint, mode, fan, or vane changes.
 - Download diagnostics from the integration page when reporting issues; diagnostics redact
   credentials, tokens, account identifiers, device serials, and router SSIDs.
 
+## Development
+
+Tests are written for `pytest` with `pytest-homeassistant-custom-component`.
+They use mocked Kumo Cloud API responses only; automated tests must not call the
+live Mitsubishi cloud service.
+
+```bash
+python -m venv .venv
+.venv/bin/python -m pip install -r requirements-dev.txt
+.venv/bin/python -m pytest
+.venv/bin/python -m py_compile custom_components/kumo_cloud/*.py
+```
+
 ## Removal
 
 1. In Home Assistant, go to Settings > Devices & Services.

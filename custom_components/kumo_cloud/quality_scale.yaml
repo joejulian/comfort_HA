@@ -8,7 +8,7 @@ rules:
     comment: Uses a DataUpdateCoordinator with a fixed polling interval.
   brands: todo
   common-modules: done
-  config-flow-test-coverage: todo
+  config-flow-test-coverage: done
   config-flow: done
   dependency-transparency: done
   docs-actions:
@@ -16,7 +16,7 @@ rules:
     comment: Integration does not register custom actions.
   docs-high-level-description: done
   docs-installation-instructions: done
-  docs-removal-instructions: todo
+  docs-removal-instructions: done
   entity-event-setup:
     status: exempt
     comment: Integration does not subscribe to explicit events.
@@ -32,8 +32,8 @@ rules:
     status: exempt
     comment: Integration does not register custom actions.
   config-entry-unloading: done
-  docs-configuration-parameters: todo
-  docs-installation-parameters: todo
+  docs-configuration-parameters: done
+  docs-installation-parameters: done
   entity-unavailable: done
   integration-owner: done
   log-when-unavailable:
@@ -41,7 +41,7 @@ rules:
     comment: Connection failures are surfaced through setup retry and coordinator update failures.
   parallel-updates: done
   reauthentication-flow: done
-  test-coverage: todo
+  test-coverage: done
 
   # Gold
   devices: done
@@ -52,12 +52,12 @@ rules:
   discovery-update-info:
     status: exempt
     comment: Cloud account integration without local discovery.
-  docs-data-update: todo
+  docs-data-update: done
   docs-examples: todo
-  docs-known-limitations: todo
-  docs-supported-devices: todo
-  docs-supported-functions: todo
-  docs-troubleshooting: todo
+  docs-known-limitations: done
+  docs-supported-devices: done
+  docs-supported-functions: done
+  docs-troubleshooting: done
   docs-use-cases: todo
   dynamic-devices: todo
   entity-category: done
