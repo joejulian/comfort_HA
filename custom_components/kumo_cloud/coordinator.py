@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from typing import Any
 import asyncio
 import logging
@@ -7,6 +7,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.core import HomeAssistant
 
 from .api import KumoCloudAPI, KumoCloudAuthError, KumoCloudConnectionError
+from .command_cache import KumoCloudCommandCache
 from .const import DOMAIN, DEFAULT_SCAN_INTERVAL
 
 _LOGGER = logging.getLogger(__name__)
@@ -31,19 +32,11 @@ class KumoCloudDataUpdateCoordinator(DataUpdateCoordinator):
         self.device_statuses: dict[str, dict[str, Any]] = {}
         self.zone_notifications: dict[str, dict[str, Any]] = {}
 
-        # Instance variable to store cached commands
-        self.cached_commands: dict[tuple[str, str], tuple[str, Any]] = {}
+        self.command_cache = KumoCloudCommandCache()
 
     def _process_pending_commands(self, device_serial: str, device_detail: dict[str, Any]) -> None:
         """Process cached commands and cull outdated commands for a device."""
-        # Check if the device already exists and the updatedAt matches
-        if device_serial in self.devices and "updatedAt" in device_detail:
-            self.cull_cached_commands(device_serial, device_detail.get("updatedAt"))
-
-        # Reapply cached commands to the device details
-        for (cached_device_serial, command), (_, command_value) in self.cached_commands.items():
-            if cached_device_serial == device_serial:
-                device_detail[command] = command_value
+        self.command_cache.apply(device_serial, device_detail)
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch data from Kumo Cloud."""
@@ -192,46 +185,16 @@ class KumoCloudDataUpdateCoordinator(DataUpdateCoordinator):
 
     def cache_command(self, device_serial: str, command: str, value: Any) -> None:
         """Cache a command with its value and timestamp."""
-        current_time = datetime.now(timezone.utc).isoformat()
-        self.cached_commands[(device_serial, command)] = (current_time, value)
-        _LOGGER.debug("Cached command in device data: %s at %s", command, current_time)
+        self.command_cache.cache(device_serial, command, value)
 
     def cull_cached_commands(self, device_serial: str, date: str) -> None:
         """Remove cached commands for a device where the date is on or after the item's timestamp."""
-        to_remove = []
-        input_date = datetime.fromisoformat(date)
+        self.command_cache.cull(device_serial, date)
 
-        for key, value in self.cached_commands.items():
-            cached_device_serial, command = key
-            cached_date, _ = value
-            cached_date_obj = datetime.fromisoformat(cached_date)
-
-            # Check if the device_serial matches and the input date is on or after the cached date
-            if cached_device_serial == device_serial and input_date >= cached_date_obj:
-                to_remove.append(key)
-            else:
-                # Log details if the condition fails
-                _LOGGER.debug(
-                    "Skipping cached command: cached_device_serial=%s, device_serial=%s, "
-                    "input_date=%s, cached_date_obj=%s, date=%s, cached_date=%s",
-                    cached_device_serial,
-                    device_serial,
-                    input_date,
-                    cached_date_obj,
-                    date,
-                    cached_date,
-                )
-
-        # Remove the matching keys
-        for key in to_remove:
-            del self.cached_commands[key]
-
-        # Log the culled and remaining commands
-        remaining_count = len(self.cached_commands)
-        _LOGGER.debug(
-            "Culled %d cached commands for device %s on or after %s. Remaining cached commands: %d",
-            len(to_remove), device_serial, date, remaining_count
-        )
+    @property
+    def cached_commands(self) -> dict[tuple[str, str], tuple[str, Any]]:
+        """Return cached commands for compatibility with diagnostics and tests."""
+        return self.command_cache.commands
 
 class KumoCloudDevice:
     """Representation of a Kumo Cloud device."""

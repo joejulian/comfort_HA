@@ -66,7 +66,7 @@ def _coordinator_diagnostics(
             "wireless_sensor_count": len(coordinator.wireless_sensors),
             "device_status_count": len(coordinator.device_statuses),
             "zone_notification_count": len(coordinator.zone_notifications),
-            "cached_command_count": len(coordinator.cached_commands),
+            "cached_command_count": len(coordinator.command_cache),
             "zones": coordinator.zones,
             "devices": coordinator.devices,
             "device_profiles": coordinator.device_profiles,
