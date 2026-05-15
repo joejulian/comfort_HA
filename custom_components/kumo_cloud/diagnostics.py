@@ -11,6 +11,7 @@ from homeassistant.core import HomeAssistant
 
 from .coordinator import KumoCloudDataUpdateCoordinator
 from .const import CONF_SITE_ID, DOMAIN
+from .runtime import KumoCloudRuntimeData
 
 TO_REDACT = {
     CONF_PASSWORD,
@@ -35,9 +36,7 @@ async def async_get_config_entry_diagnostics(
     hass: HomeAssistant, entry: ConfigEntry
 ) -> dict[str, Any]:
     """Return diagnostics for a config entry."""
-    coordinator: KumoCloudDataUpdateCoordinator | None = hass.data.get(DOMAIN, {}).get(
-        entry.entry_id
-    )
+    runtime_data: KumoCloudRuntimeData | None = hass.data.get(DOMAIN, {}).get(entry.entry_id)
 
     diagnostics: dict[str, Any] = {
         "entry": {
@@ -48,8 +47,8 @@ async def async_get_config_entry_diagnostics(
         "coordinator": None,
     }
 
-    if coordinator is not None:
-        diagnostics["coordinator"] = _coordinator_diagnostics(coordinator)
+    if runtime_data is not None:
+        diagnostics["coordinator"] = _coordinator_diagnostics(runtime_data.coordinator)
 
     return diagnostics
 

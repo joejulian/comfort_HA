@@ -13,6 +13,7 @@ from custom_components.kumo_cloud import PLATFORMS
 from custom_components.kumo_cloud import async_setup_entry, async_unload_entry
 from custom_components.kumo_cloud.api import KumoCloudConnectionError
 from custom_components.kumo_cloud.const import CONF_SITE_ID, DOMAIN
+from custom_components.kumo_cloud.runtime import KumoCloudRuntimeData
 
 
 @pytest.fixture
@@ -77,7 +78,10 @@ async def test_token_based_setup_stores_coordinator_and_forwards_platforms(
     mock_api.get_account_info.assert_awaited_once()
     mock_api.login.assert_not_awaited()
     mock_coordinator.async_config_entry_first_refresh.assert_awaited_once()
-    assert hass.data[DOMAIN][config_entry.entry_id] is mock_coordinator
+    runtime_data = hass.data[DOMAIN][config_entry.entry_id]
+    assert isinstance(runtime_data, KumoCloudRuntimeData)
+    assert runtime_data.api is mock_api
+    assert runtime_data.coordinator is mock_coordinator
     forward_setups.assert_awaited_once_with(config_entry, PLATFORMS)
 
 
@@ -89,7 +93,10 @@ async def test_unload_entry_removes_runtime_data(
 ) -> None:
     """Unload removes the stored coordinator when platforms unload successfully."""
     config_entry.add_to_hass(hass)
-    hass.data.setdefault(DOMAIN, {})[config_entry.entry_id] = mock_coordinator
+    hass.data.setdefault(DOMAIN, {})[config_entry.entry_id] = KumoCloudRuntimeData(
+        api=AsyncMock(),
+        coordinator=mock_coordinator,
+    )
     unload_platforms = AsyncMock(return_value=True)
     monkeypatch.setattr(hass.config_entries, "async_unload_platforms", unload_platforms)
 

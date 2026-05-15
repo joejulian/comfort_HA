@@ -57,6 +57,7 @@ from .mappings import (
     UI_TO_API_VANE,
     UI_VANE_ORDER,
 )
+from .runtime import KumoCloudRuntimeData
 from .temperature import c_to_f as _c_to_f
 from .temperature import f_to_c as _f_to_c
 
@@ -112,7 +113,8 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up Kumo Cloud climate devices."""
-    coordinator: KumoCloudDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
+    runtime_data: KumoCloudRuntimeData = hass.data[DOMAIN][entry.entry_id]
+    coordinator = runtime_data.coordinator
 
     entities = []
     for zone in coordinator.zones:
