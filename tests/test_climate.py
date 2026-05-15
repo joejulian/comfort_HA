@@ -82,6 +82,19 @@ def test_current_temperature_uses_mitsubishi_display_conversion(hass) -> None:
     assert entity.current_temperature == 69
 
 
+def test_current_humidity_uses_v3_adapter_or_device_payload(hass) -> None:
+    """Current humidity exposes V3 humidity from device detail or zone adapter data."""
+    adapter_humidity = _entity(hass, adapter={"humidity": 36.96875})
+    device_humidity = _entity(
+        hass,
+        adapter={"humidity": 36.96875},
+        device_data={"humidity": 41},
+    )
+
+    assert adapter_humidity.current_humidity == 36.96875
+    assert device_humidity.current_humidity == 41
+
+
 def test_heat_and_cool_target_temperatures_use_correct_setpoint_fields(hass) -> None:
     """Heat and cool modes expose their matching target setpoint."""
     cool = _entity(
