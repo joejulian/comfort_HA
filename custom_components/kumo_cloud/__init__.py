@@ -42,10 +42,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             try:
                 await api.get_account_info()
             except KumoCloudAuthError:
-                # Token expired, try to login again
-                if CONF_PASSWORD not in entry.data:
-                    raise
-                await api.login(entry.data[CONF_USERNAME], entry.data[CONF_PASSWORD])
+                # Access token expired. Prefer the stored refresh token because
+                # the account password is no longer persisted.
+                try:
+                    await api.refresh_access_token()
+                    await api.get_account_info()
+                except KumoCloudAuthError:
+                    if CONF_PASSWORD not in entry.data:
+                        raise
+                    await api.login(entry.data[CONF_USERNAME], entry.data[CONF_PASSWORD])
 
     except KumoCloudAuthError as err:
         raise ConfigEntryAuthFailed(f"Authentication failed: {err}") from err
@@ -72,7 +77,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.config_entries.async_update_entry(entry, data=updated_data)
 
     # Create the coordinator
-    coordinator = KumoCloudDataUpdateCoordinator(hass, api, entry.data[CONF_SITE_ID])
+    coordinator = KumoCloudDataUpdateCoordinator(hass, api, entry.data[CONF_SITE_ID], entry)
 
     # Fetch initial data so we have data when entities are added
     await coordinator.async_config_entry_first_refresh()

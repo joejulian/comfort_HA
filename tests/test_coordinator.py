@@ -5,10 +5,14 @@ from __future__ import annotations
 from unittest.mock import AsyncMock
 
 import pytest
+from homeassistant.const import CONF_USERNAME
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import UpdateFailed
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.kumo_cloud.api import KumoCloudAuthError, KumoCloudConnectionError
 from custom_components.kumo_cloud.coordinator import KumoCloudDataUpdateCoordinator
+from custom_components.kumo_cloud.const import CONF_SITE_ID, DOMAIN
 
 
 @pytest.fixture
@@ -52,6 +56,8 @@ def api() -> AsyncMock:
         return_value={"battery": 90, "rssi": -55, "temperature": 21.5}
     )
     client.refresh_access_token = AsyncMock()
+    client.access_token = "access-token"
+    client.refresh_token = "refresh-token"
     return client
 
 
@@ -122,6 +128,99 @@ async def test_auth_failure_refreshes_token_once_then_retries(
 
     api.refresh_access_token.assert_awaited_once()
     assert list(data["devices"]) == ["device-1"]
+
+
+async def test_auth_failure_in_device_request_refreshes_token_once_then_retries(
+    coordinator: KumoCloudDataUpdateCoordinator,
+    api: AsyncMock,
+) -> None:
+    """An auth failure from parallel per-device requests refreshes and retries."""
+    retry_zones = [
+        {
+            "id": "zone-1",
+            "name": "Living Room",
+            "adapter": {"deviceSerial": "device-1", "hasSensor": False},
+        }
+    ]
+    api.get_zones.side_effect = [
+        retry_zones,
+        retry_zones,
+    ]
+    api.get_device_details.side_effect = [
+        KumoCloudAuthError("expired"),
+        {"serialNumber": "device-1", "updatedAt": "2026-01-01T00:00:00+00:00"},
+    ]
+    api.get_device_profile.side_effect = [[{"hasModeHeat": True}], []]
+    api.get_device_status.side_effect = [{"firmwareVersion": "stale"}, {}]
+    api.get_zone_notification_preferences.side_effect = [
+        {"filterDirtyReminderInterval": 90},
+        {},
+    ]
+
+    data = await coordinator._async_update_data()
+
+    api.refresh_access_token.assert_awaited_once()
+    assert data["devices"]["device-1"]["serialNumber"] == "device-1"
+
+
+async def test_runtime_token_refresh_persists_rotated_tokens(
+    hass,
+    api: AsyncMock,
+) -> None:
+    """Runtime refresh saves rotated tokens so restarts keep the new refresh token."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Kumo Cloud - Home",
+        data={
+            CONF_USERNAME: "user@example.invalid",
+            CONF_SITE_ID: "site-1",
+            "access_token": "old-access-token",
+            "refresh_token": "old-refresh-token",
+        },
+    )
+    entry.add_to_hass(hass)
+    coordinator = KumoCloudDataUpdateCoordinator(hass, api, "site-1", entry)
+    retry_zones = [
+        {
+            "id": "zone-1",
+            "name": "Living Room",
+            "adapter": {"deviceSerial": "device-1", "hasSensor": False},
+        }
+    ]
+    api.get_zones.side_effect = [KumoCloudAuthError("expired"), retry_zones]
+
+    async def rotate_tokens() -> None:
+        api.access_token = "new-access-token"
+        api.refresh_token = "new-refresh-token"
+
+    api.refresh_access_token.side_effect = rotate_tokens
+    api.get_device_details.side_effect = [
+        {"serialNumber": "device-1", "updatedAt": "2026-01-01T00:00:00+00:00"}
+    ]
+    api.get_device_profile.side_effect = [[]]
+    api.get_device_status.side_effect = [{}]
+    api.get_zone_notification_preferences.side_effect = [{}]
+
+    await coordinator._async_update_data()
+
+    assert entry.data == {
+        CONF_USERNAME: "user@example.invalid",
+        CONF_SITE_ID: "site-1",
+        "access_token": "new-access-token",
+        "refresh_token": "new-refresh-token",
+    }
+
+
+async def test_expired_runtime_refresh_token_starts_reauth(
+    coordinator: KumoCloudDataUpdateCoordinator,
+    api: AsyncMock,
+) -> None:
+    """If refresh fails with auth, Home Assistant should start reauthentication."""
+    api.get_zones.side_effect = KumoCloudAuthError("expired access token")
+    api.refresh_access_token.side_effect = KumoCloudAuthError("expired refresh token")
+
+    with pytest.raises(ConfigEntryAuthFailed):
+        await coordinator._async_update_data()
 
 
 async def test_persistent_connection_failure_raises_update_failed(
