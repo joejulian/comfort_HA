@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.2.1] - 2026-06-05
+
+### Fixed
+- Refresh stored access tokens before requiring reauthentication when Home Assistant
+  starts with an expired access token.
+- Persist rotated access and refresh tokens after runtime refreshes so restarts do
+  not reuse stale refresh tokens.
+- Start Home Assistant reauthentication when a runtime refresh token can no longer
+  recover the integration.
+
 ## [1.1.2] - 2026-05-14
 
 ### Fixed
