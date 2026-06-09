@@ -211,6 +211,56 @@ async def test_runtime_token_refresh_persists_rotated_tokens(
     }
 
 
+async def test_proactive_api_token_refresh_persists_rotated_tokens(
+    hass,
+    api: AsyncMock,
+) -> None:
+    """Tokens refreshed inside normal API requests are saved for restart."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Kumo Cloud - Home",
+        data={
+            CONF_USERNAME: "user@example.invalid",
+            CONF_SITE_ID: "site-1",
+            "access_token": "old-access-token",
+            "refresh_token": "old-refresh-token",
+        },
+    )
+    entry.add_to_hass(hass)
+    coordinator = KumoCloudDataUpdateCoordinator(hass, api, "site-1", entry)
+
+    async def get_zones_with_rotated_tokens(
+        site_id: str,
+    ) -> list[dict[str, object]]:
+        assert site_id == "site-1"
+        api.access_token = "new-access-token"
+        api.refresh_token = "new-refresh-token"
+        return [
+            {
+                "id": "zone-1",
+                "name": "Living Room",
+                "adapter": {"deviceSerial": "device-1", "hasSensor": False},
+            }
+        ]
+
+    api.get_zones.side_effect = get_zones_with_rotated_tokens
+    api.get_device_details.side_effect = [
+        {"serialNumber": "device-1", "updatedAt": "2026-01-01T00:00:00+00:00"}
+    ]
+    api.get_device_profile.side_effect = [[]]
+    api.get_device_status.side_effect = [{}]
+    api.get_zone_notification_preferences.side_effect = [{}]
+
+    await coordinator._async_update_data()
+
+    assert entry.data == {
+        CONF_USERNAME: "user@example.invalid",
+        CONF_SITE_ID: "site-1",
+        "access_token": "new-access-token",
+        "refresh_token": "new-refresh-token",
+    }
+
+
 async def test_expired_runtime_refresh_token_starts_reauth(
     coordinator: KumoCloudDataUpdateCoordinator,
     api: AsyncMock,

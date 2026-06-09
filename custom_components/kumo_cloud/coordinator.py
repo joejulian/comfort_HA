@@ -155,7 +155,9 @@ class KumoCloudDataUpdateCoordinator(DataUpdateCoordinator):
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch data from Kumo Cloud."""
         try:
-            return await self._fetch_data()
+            data = await self._fetch_data()
+            self._persist_tokens()
+            return data
 
         except KumoCloudAuthError as err:
             try:
@@ -174,7 +176,9 @@ class KumoCloudDataUpdateCoordinator(DataUpdateCoordinator):
                 ) from refresh_err
 
             try:
-                return await self._fetch_data()
+                data = await self._fetch_data()
+                self._persist_tokens()
+                return data
             except KumoCloudAuthError as retry_err:
                 raise ConfigEntryAuthFailed(
                     f"Authentication failed after token refresh: {retry_err}"
@@ -193,6 +197,7 @@ class KumoCloudDataUpdateCoordinator(DataUpdateCoordinator):
         try:
             # Get fresh device details
             device_detail = await self.api.get_device_details(device_serial)
+            self._persist_tokens()
 
             # Process pending commands for the device
             self._process_pending_commands(device_serial, device_detail)

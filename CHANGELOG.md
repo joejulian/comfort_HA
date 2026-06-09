@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.2] - 2026-06-09
+
+### Fixed
+- Persist tokens rotated by proactive API-client refreshes during normal polling
+  and targeted device refreshes so Home Assistant restarts do not fall back to an
+  expired refresh token.
+
 ## [1.2.1] - 2026-06-05
 
 ### Fixed
