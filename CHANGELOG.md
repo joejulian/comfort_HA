@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.3] - 2026-07-01
+
+### Fixed
+- Preserve fractional Fahrenheit setpoints by converting them directly to the
+  nearest half-Celsius Kumo setpoint instead of rounding them through the
+  whole-degree Mitsubishi lookup table.
+
 ## [1.2.2] - 2026-06-09
 
 ### Fixed

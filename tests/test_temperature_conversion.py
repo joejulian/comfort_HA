@@ -13,6 +13,11 @@ def test_fahrenheit_setpoints_use_mitsubishi_lookup() -> None:
     assert temperature.f_to_c(72) == 22.5
 
 
+def test_fractional_fahrenheit_setpoints_use_half_celsius_steps() -> None:
+    """Fractional helper values can target Kumo's half-Celsius limits."""
+    assert temperature.f_to_c(68.9) == 20.5
+
+
 def test_celsius_display_uses_mitsubishi_lookup() -> None:
     """Displayed temperatures use the measured Mitsubishi C to F table."""
     assert temperature.c_to_f(20.5) == 69

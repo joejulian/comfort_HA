@@ -40,6 +40,9 @@ def f_to_c(fahrenheit: float | None) -> float | None:
     """Convert Fahrenheit to Celsius using Mitsubishi's lookup table."""
     if fahrenheit is None:
         return None
+    if float(fahrenheit) != int(fahrenheit):
+        celsius = (fahrenheit - 32.0) * 5.0 / 9.0
+        return round(celsius * 2.0) / 2.0
     f_int = int(round(fahrenheit))
     if f_int in F_TO_C:
         return F_TO_C[f_int]
